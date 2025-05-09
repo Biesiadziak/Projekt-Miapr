@@ -3,6 +3,8 @@
 
 #include <string>
 #include <memory>
+#include <vector>
+#include <random>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/point.hpp"
@@ -13,6 +15,8 @@
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
+
+#include "visualization_msgs/msg/marker.hpp"
 
 namespace nav2_straightline_planner
 {
@@ -43,6 +47,13 @@ public:
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal,
     std::function<bool()> cancel_checker) override;
+  
+  
+  // My variables
+  std::random_device rd;
+  std::mt19937 gen_;
+  int id;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 
 private:
   // TF buffer
@@ -58,6 +69,11 @@ private:
   std::string global_frame_, name_;
 
   double interpolation_resolution_;
+  
+
+  // My functions
+  std::tuple<float, float> randomPoint();
+  void publishMarker(std::tuple<float, float> point);
 };
 
 }  // namespace nav2_straightline_planner

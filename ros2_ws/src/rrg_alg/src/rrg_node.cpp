@@ -1,6 +1,7 @@
 #include <cmath>
 #include <string>
 #include <memory>
+
 #include "nav2_util/node_utils.hpp"
 
 #include "rrg_alg/rrg_node.hpp"
@@ -24,6 +25,11 @@ void StraightLine::configure(
     node_, name_ + ".interpolation_resolution", rclcpp::ParameterValue(
       0.1));
   node_->get_parameter(name_ + ".interpolation_resolution", interpolation_resolution_);
+
+  // Configure everithing
+  gen_ = std::mt19937(rd());
+  marker_pub_ = this->node_->create_publisher<visualization_msgs::msg::Marker>("random_point_marker", 10);
+  id = 0;
 }
 
 void StraightLine::cleanup()
@@ -47,10 +53,58 @@ void StraightLine::deactivate()
     name_.c_str());
 }
 
-nav_msgs::msg::Path StraightLine::createPlan(
-  const geometry_msgs::msg::PoseStamped & start,
-  const geometry_msgs::msg::PoseStamped & goal,
-  std::function<bool()> /*cancel_checker*/)
+std::tuple<float,float> StraightLine::randomPoint()
+{
+  double width = costmap_->getSizeInMetersX();
+  double height = costmap_->getSizeInMetersY();
+
+  std::uniform_real_distribution<> distrib(0.0, 1.0);
+
+  float x = (distrib(gen_) * width) / 3 - width/6;
+  float y = (distrib(gen_) * height) / 3 - height/6;
+
+  return std::make_tuple(x, y);    
+}
+
+void StraightLine::publishMarker(std::tuple<float, float> point)
+{
+  auto [x, y] = point;
+  visualization_msgs::msg::Marker marker;
+
+  marker.header.frame_id = "map"; // Choose the correct frame
+  marker.header.stamp = node_->get_clock()->now();
+  marker.ns = "random_point %f", id;
+  marker.id = id;
+  id++;
+  marker.type = visualization_msgs::msg::Marker::SPHERE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // Set the position of the marker
+  marker.pose.position.x = x;
+  marker.pose.position.y = y;
+  marker.pose.position.z = 0.0; // Keep it at the ground level
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+
+  // Set the scale of the marker (size of the sphere)
+  marker.scale.x = 0.5; // Diameter of the sphere
+  marker.scale.y = 0.5;
+  marker.scale.z = 0.5;
+
+  // Set the color (RGBA)
+  marker.color.a = 1.0; // Alpha (transparency)
+  marker.color.r = 1.0; // Red
+  marker.color.g = 0.0; // Green
+  marker.color.b = 0.0; // Blue
+
+  // Publish the marker
+  marker_pub_->publish(marker);
+  RCLCPP_INFO(this->node_->get_logger(), "Marker published");
+}
+
+nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal, std::function<bool()> /*cancel_checker*/)
 {
   nav_msgs::msg::Path global_path;
 
@@ -93,6 +147,12 @@ nav_msgs::msg::Path StraightLine::createPlan(
     pose.header.frame_id = global_frame_;
     global_path.poses.push_back(pose);
   }
+  for (int i=0; i<10; i++)
+  {
+    std::tuple<float, float> point = this->randomPoint();
+    RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
+    publishMarker(point);
+  }
 
   geometry_msgs::msg::PoseStamped goal_pose = goal;
   goal_pose.header.stamp = node_->now();
@@ -101,8 +161,7 @@ nav_msgs::msg::Path StraightLine::createPlan(
 
   return global_path;
 }
-
-}  // namespace nav2_straightline_planner
+} // namespace nav2_straightline_planner
 
 #include "pluginlib/class_list_macros.hpp"
 PLUGINLIB_EXPORT_CLASS(nav2_straightline_planner::StraightLine, nav2_core::GlobalPlanner)
