@@ -1,0 +1,6 @@
+.cache/
+.ros/
+.sdformat/
+.rviz2/
+.bash_history/
+.gz/
