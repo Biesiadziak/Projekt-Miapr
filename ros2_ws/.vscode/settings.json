@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "/home/bartek/Studia/Projekty/Miapr/ros2_ws/src/rrg_alg",
+    "files.associations": {
+        "memory": "cpp"
+    }
+}
