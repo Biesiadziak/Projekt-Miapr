@@ -4,7 +4,7 @@
 IMAGE_NAME="miapr-projekt"
 CONTAINER_NAME="miapr-projekt-con"
 DOCKERFILE_PATH="Dockerfile"
-WORKSPACE_PATH="$HOME/Studia/Projekty/Miapr"
+WORKSPACE_PATH="/home/mateusz/Desktop/projekty/miapr/Projekt-Miapr"
 #SETUP_SCRIPT="./.devcontainer/setup-workspace.sh"
 
 xhost +local:docker

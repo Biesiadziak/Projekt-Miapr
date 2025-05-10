@@ -55,6 +55,8 @@ public:
   int id;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr graph_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr a_star_pub_;
+
   std::map<std::tuple<float, float>, std::list<std::tuple<float, float> >> graph;
   float R;
 
@@ -79,6 +81,16 @@ private:
   void publishMarker(std::tuple<float, float> point, float scale, int color);
   void find_closest(std::tuple<float, float> point);
   bool check_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest);
+
+  std::vector<std::tuple<float, float>> a_star(
+    std::map<std::tuple<float, float>, std::list<std::tuple<float, float>>>& graph,
+    std::tuple<float, float> start,
+    std::tuple<float, float> goal);
+
+  void publishAStarPath(const std::vector<std::tuple<float, float>>& path_points);
+
+  double heuristic(const std::tuple<float, float>& a, const std::tuple<float, float>& b);
+  
 };
 
 }  // namespace nav2_straightline_planner
