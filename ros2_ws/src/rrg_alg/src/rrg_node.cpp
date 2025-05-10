@@ -63,7 +63,16 @@ std::tuple<float,float> StraightLine::randomPoint()
   float x = (distrib(gen_) * width) / 3 - width/6;
   float y = (distrib(gen_) * height) / 3 - height/6;
 
-  return std::make_tuple(x, y);    
+  unsigned int mx, my;
+  costmap_->worldToMap(x, y, mx, my);
+  if (costmap_->getCost(mx,my) < 200)
+  {
+    return std::make_tuple(x, y); 
+  }
+  else
+  {
+    return randomPoint();
+  }
 }
 
 std::tuple<float,float> StraightLine::find_closest(std::tuple<float, float> point)
@@ -99,7 +108,41 @@ std::tuple<float,float> StraightLine::find_closest(std::tuple<float, float> poin
   return closest;
 }
 
-void StraightLine::publishMarker(std::tuple<float, float> point)
+bool StraightLine::chack_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest)
+{
+  float point_x = std::get<0>(point);
+  float point_y = std::get<1>(point);
+
+  float closest_x = std::get<0>(closest);
+  float closest_y = std::get<1>(closest);
+
+  int num_points = 2;
+
+  float dx = (point_x - closest_x) / num_points;
+  float dy = (point_y - closest_y) / num_points;
+
+  for (int i = 0; i<num_points; i++)
+  {
+    closest_x+=dx;
+    closest_y+=dy;
+    //std::tuple<float, float> p = std::make_tuple(closest_x, closest_y);
+
+    unsigned int mx, my;
+    costmap_->worldToMap(closest_x, closest_y, mx, my);
+    if (costmap_->getCost(mx,my) > 250)
+    {
+      publishMarker(point, 0.1, 1);
+      return false;
+    }
+    //publishMarker(p, 0.1, 2);
+  }
+  //publishMarker(point, 0.2, 1);
+  //publishMarker(closest, 0.2, 3);
+  publishMarker(point, 0.1, 2);
+  return false;
+}
+
+void StraightLine::publishMarker(std::tuple<float, float> point, float scale, int color)
 {
   auto [x, y] = point;
   visualization_msgs::msg::Marker marker;
@@ -122,15 +165,30 @@ void StraightLine::publishMarker(std::tuple<float, float> point)
   marker.pose.orientation.w = 1.0;
 
   // Set the scale of the marker (size of the sphere)
-  marker.scale.x = 0.5; // Diameter of the sphere
-  marker.scale.y = 0.5;
-  marker.scale.z = 0.5;
+  marker.scale.x = scale; // Diameter of the sphere
+  marker.scale.y = scale;
+  marker.scale.z = scale;
 
   // Set the color (RGBA)
   marker.color.a = 1.0; // Alpha (transparency)
-  marker.color.r = 1.0; // Red
-  marker.color.g = 0.0; // Green
-  marker.color.b = 0.0; // Blue
+  if (color == 1)
+  {
+    marker.color.r = 1.0; // Red
+    marker.color.g = 0.0; // Green
+    marker.color.b = 0.0; 
+  }
+  else if (color == 2)
+  {
+    marker.color.r = 0.0; // Red
+    marker.color.g = 1.0; // Green
+    marker.color.b = 0.0; // Blue
+  }
+  else if (color == 3)
+  {
+    marker.color.r = 0.0; // Red
+    marker.color.g = 0.0; // Green
+    marker.color.b = 1.0; // Blue
+  }
 
   // Publish the marker
   marker_pub_->publish(marker);
@@ -142,8 +200,9 @@ void StraightLine::search()
 {
   std::tuple<float, float> point = this->randomPoint();
   RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
-  publishMarker(point);
-  find_closest(point);
+  //publishMarker(point, 0.5, true);
+  std::tuple<float, float> closest = find_closest(point);
+  chack_if_valid(point, closest);
 }
 
 

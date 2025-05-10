@@ -74,9 +74,10 @@ private:
 
   // My functions
   std::tuple<float, float> randomPoint();
-  void publishMarker(std::tuple<float, float> point);
+  void publishMarker(std::tuple<float, float> point, float scale, int color);
   void search();
   std::tuple<float, float> find_closest(std::tuple<float, float> point);
+  bool chack_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest);
 };
 
 }  // namespace nav2_straightline_planner
