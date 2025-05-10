@@ -54,6 +54,7 @@ public:
   std::mt19937 gen_;
   int id;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+  std::map<std::tuple<float, float>, std::list<std::tuple<float, float> >> graph;
 
 private:
   // TF buffer
@@ -74,6 +75,8 @@ private:
   // My functions
   std::tuple<float, float> randomPoint();
   void publishMarker(std::tuple<float, float> point);
+  void search();
+  std::tuple<float, float> find_closest(std::tuple<float, float> point);
 };
 
 }  // namespace nav2_straightline_planner

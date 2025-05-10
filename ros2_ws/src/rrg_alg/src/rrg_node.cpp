@@ -66,6 +66,39 @@ std::tuple<float,float> StraightLine::randomPoint()
   return std::make_tuple(x, y);    
 }
 
+std::tuple<float,float> StraightLine::find_closest(std::tuple<float, float> point)
+{
+  float distance = std::numeric_limits<float>::infinity();
+  std::tuple<float, float> closest = std::make_tuple(
+    std::numeric_limits<float>::quiet_NaN(),
+    std::numeric_limits<float>::quiet_NaN()
+  );
+
+  for (const auto& [node, neighbors] : graph)
+  {
+    if (node != std::make_tuple(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()))
+    {
+      float point_x = std::get<0>(point);
+      float point_y = std::get<1>(point);
+
+      float node_x = std::get<0>(node);
+      float node_y = std::get<1>(node);
+
+      float dx = point_x - node_x;
+      float dy = point_y - node_y;
+
+      float dist = sqrt(dx * dx + dy * dy);
+      if (dist < distance)
+      {
+        distance = dist;
+        closest = node;
+      }
+    }
+  }
+  RCLCPP_INFO(this->node_->get_logger(), "Closest point: %f, %f", std::get<0>(closest), std::get<1>(closest));
+  return closest;
+}
+
 void StraightLine::publishMarker(std::tuple<float, float> point)
 {
   auto [x, y] = point;
@@ -104,6 +137,17 @@ void StraightLine::publishMarker(std::tuple<float, float> point)
   RCLCPP_INFO(this->node_->get_logger(), "Marker published");
 }
 
+
+void StraightLine::search()
+{
+  std::tuple<float, float> point = this->randomPoint();
+  RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
+  publishMarker(point);
+  find_closest(point);
+}
+
+
+
 nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal, std::function<bool()> /*cancel_checker*/)
 {
   nav_msgs::msg::Path global_path;
@@ -122,7 +166,6 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
       global_frame_.c_str());
     return global_path;
   }
-
   global_path.poses.clear();
   global_path.header.stamp = node_->now();
   global_path.header.frame_id = global_frame_;
@@ -147,12 +190,8 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
     pose.header.frame_id = global_frame_;
     global_path.poses.push_back(pose);
   }
-  for (int i=0; i<10; i++)
-  {
-    std::tuple<float, float> point = this->randomPoint();
-    RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
-    publishMarker(point);
-  }
+  graph[std::tuple<float, float> (start.pose.position.x, start.pose.position.y)].push_back(std::make_tuple(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()));
+  search();
 
   geometry_msgs::msg::PoseStamped goal_pose = goal;
   goal_pose.header.stamp = node_->now();
