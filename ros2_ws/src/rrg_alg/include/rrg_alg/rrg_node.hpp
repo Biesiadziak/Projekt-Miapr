@@ -54,7 +54,9 @@ public:
   std::mt19937 gen_;
   int id;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr graph_pub_;
   std::map<std::tuple<float, float>, std::list<std::tuple<float, float> >> graph;
+  float R;
 
 private:
   // TF buffer
@@ -75,9 +77,8 @@ private:
   // My functions
   std::tuple<float, float> randomPoint();
   void publishMarker(std::tuple<float, float> point, float scale, int color);
-  void search();
-  std::tuple<float, float> find_closest(std::tuple<float, float> point);
-  bool chack_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest);
+  void find_closest(std::tuple<float, float> point);
+  bool check_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest);
 };
 
 }  // namespace nav2_straightline_planner

@@ -29,7 +29,9 @@ void StraightLine::configure(
   // Configure everithing
   gen_ = std::mt19937(rd());
   marker_pub_ = this->node_->create_publisher<visualization_msgs::msg::Marker>("random_point_marker", 10);
+  graph_pub_ = this->node_->create_publisher<visualization_msgs::msg::Marker>("graph_markers", 10);
   id = 0;
+  R = 0.3;
 }
 
 void StraightLine::cleanup()
@@ -75,7 +77,7 @@ std::tuple<float,float> StraightLine::randomPoint()
   }
 }
 
-std::tuple<float,float> StraightLine::find_closest(std::tuple<float, float> point)
+void StraightLine::find_closest(std::tuple<float, float> point)
 {
   float distance = std::numeric_limits<float>::infinity();
   std::tuple<float, float> closest = std::make_tuple(
@@ -97,18 +99,25 @@ std::tuple<float,float> StraightLine::find_closest(std::tuple<float, float> poin
       float dy = point_y - node_y;
 
       float dist = sqrt(dx * dx + dy * dy);
-      if (dist < distance)
+      // if (dist < distance)
+      // {
+      //   distance = dist;
+      //   closest = node;
+      // }
+      if (dist < R)
       {
-        distance = dist;
-        closest = node;
+        bool is_vaild = check_if_valid(point, node);
+        if (is_vaild)
+        {
+          graph[point].push_back(node);
+        }
       }
     }
   }
-  RCLCPP_INFO(this->node_->get_logger(), "Closest point: %f, %f", std::get<0>(closest), std::get<1>(closest));
-  return closest;
+  //RCLCPP_INFO(this->node_->get_logger(), "Closest point: %f, %f", std::get<0>(closest), std::get<1>(closest));
 }
 
-bool StraightLine::chack_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest)
+bool StraightLine::check_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest)
 {
   float point_x = std::get<0>(point);
   float point_y = std::get<1>(point);
@@ -116,7 +125,7 @@ bool StraightLine::chack_if_valid(std::tuple<float, float> point, std::tuple<flo
   float closest_x = std::get<0>(closest);
   float closest_y = std::get<1>(closest);
 
-  int num_points = 2;
+  int num_points = 1000;
 
   float dx = (point_x - closest_x) / num_points;
   float dy = (point_y - closest_y) / num_points;
@@ -131,15 +140,15 @@ bool StraightLine::chack_if_valid(std::tuple<float, float> point, std::tuple<flo
     costmap_->worldToMap(closest_x, closest_y, mx, my);
     if (costmap_->getCost(mx,my) > 250)
     {
-      publishMarker(point, 0.1, 1);
       return false;
     }
     //publishMarker(p, 0.1, 2);
   }
   //publishMarker(point, 0.2, 1);
   //publishMarker(closest, 0.2, 3);
-  publishMarker(point, 0.1, 2);
-  return false;
+  //publishMarker(point, 0.1, 2);
+  publishMarker(point, 0.1, 1);
+  return true;
 }
 
 void StraightLine::publishMarker(std::tuple<float, float> point, float scale, int color)
@@ -193,18 +202,50 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
   // Publish the marker
   marker_pub_->publish(marker);
   RCLCPP_INFO(this->node_->get_logger(), "Marker published");
+
+
+  visualization_msgs::msg::Marker edge_marker;
+  edge_marker.header.frame_id = "map";
+  edge_marker.header.stamp = node_->get_clock()->now();
+  edge_marker.ns = "edges";
+  edge_marker.id = 0;
+  edge_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+  edge_marker.action = visualization_msgs::msg::Marker::ADD;
+  edge_marker.scale.x = 0.01;
+  edge_marker.color.r = 1.0f;
+  edge_marker.color.g = 0.0f;
+  edge_marker.color.b = 0.0f;
+  edge_marker.color.a = 1.0;
+
+  // Loop over your graph
+  for (const auto& [from, neighbors] : graph) {
+    float from_x = std::get<0>(from);
+    float from_y = std::get<1>(from);
+    if (!std::isnan(from_x) && !std::isnan(from_y))
+    {
+      geometry_msgs::msg::Point p1;
+      p1.x = from_x;
+      p1.y = from_y;
+      p1.z = 0.0;
+
+      for (const auto& to : neighbors) {
+        float to_x = std::get<0>(to);
+        float to_y = std::get<1>(to);
+        if (!std::isnan(to_x) && !std::isnan(to_y))
+        {
+          geometry_msgs::msg::Point p2;
+          p2.x = to_x;
+          p2.y = to_y;
+          p2.z = 0.0;
+
+          edge_marker.points.push_back(p1);
+          edge_marker.points.push_back(p2);
+        }
+      }
+    }
+  }
+  graph_pub_->publish(edge_marker);
 }
-
-
-void StraightLine::search()
-{
-  std::tuple<float, float> point = this->randomPoint();
-  RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
-  //publishMarker(point, 0.5, true);
-  std::tuple<float, float> closest = find_closest(point);
-  chack_if_valid(point, closest);
-}
-
 
 
 nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal, std::function<bool()> /*cancel_checker*/)
@@ -249,8 +290,23 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
     pose.header.frame_id = global_frame_;
     global_path.poses.push_back(pose);
   }
-  graph[std::tuple<float, float> (start.pose.position.x, start.pose.position.y)].push_back(std::make_tuple(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()));
-  search();
+  std:: tuple<float, float> start_t = std::tuple<float, float> (start.pose.position.x, start.pose.position.y);
+  std:: tuple<float, float> goal_t = std::tuple<float, float> (goal.pose.position.x, goal.pose.position.y);
+
+  graph[start_t].push_back(std::make_tuple(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()));
+  
+  while (true)
+  {
+    std::tuple<float, float> point = this->randomPoint();
+    RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
+    //publishMarker(point, 0.5, true);
+    find_closest(point);
+    if (check_if_valid(point, goal_t))
+    {
+      graph[point].push_back(goal_t);
+      //break;
+    }
+  }
 
   geometry_msgs::msg::PoseStamped goal_pose = goal;
   goal_pose.header.stamp = node_->now();
