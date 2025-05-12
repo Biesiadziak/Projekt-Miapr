@@ -34,13 +34,30 @@ void StraightLine::configure(
 
   
   id = 0;
-  R = 0.3;
+  R = 0.5;
 }
 double StraightLine::heuristic(const std::tuple<float, float>& a, const std::tuple<float, float>& b)
 {
   float dx = std::get<0>(a) - std::get<0>(b);
   float dy = std::get<1>(a) - std::get<1>(b);
   return std::sqrt(dx * dx + dy * dy);
+}
+
+void StraightLine::updateRadius()
+{
+  const double gamma_star = 2.0 * std::pow(1.0 + 1.0 / 2, 1.0 / 2); 
+  const double safety_margin = 1.2;  
+  const double gamma = gamma_star * safety_margin;
+
+  const std::size_t n = graph.size();
+
+  if (n < 2) {
+    R = std::numeric_limits<double>::infinity();  
+    return;
+  }
+
+  R = gamma * std::pow(std::log(static_cast<double>(n)) / static_cast<double>(n), 1.0 / 2);
+  
 }
 
 
@@ -339,7 +356,17 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
 nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal, std::function<bool()> /*cancel_checker*/)
 {
   nav_msgs::msg::Path global_path;
-  
+  std:: tuple<float, float> start_t = std::tuple<float, float> (start.pose.position.x, start.pose.position.y);
+  std:: tuple<float, float> goal_t = std::tuple<float, float> (goal.pose.position.x, goal.pose.position.y);
+  path_points.clear(); 
+  graph[start_t];              
+  graph[goal_t];
+  if(graph_built_){
+    find_closest(start_t);
+    find_closest(goal_t);
+    path_points = a_star(graph, start_t, goal_t);
+  }
+
   if (start.header.frame_id != global_frame_) {
     RCLCPP_ERROR(
       node_->get_logger(), "Planner will only except start position from %s frame",
@@ -364,16 +391,25 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
   double x_increment = (goal.pose.position.x - start.pose.position.x) / total_number_of_loop;
   double y_increment = (goal.pose.position.y - start.pose.position.y) / total_number_of_loop;
 
-
-  std:: tuple<float, float> start_t = std::tuple<float, float> (start.pose.position.x, start.pose.position.y);
-  std:: tuple<float, float> goal_t = std::tuple<float, float> (goal.pose.position.x, goal.pose.position.y);
+  //WARIANT Z CIĄGŁYM DOKŁADANIEM PUNKTÓW
+  //if(!path_points.empty()){
+  //  for(int n = 0; n<100; n++){
+  //    std::tuple<float,float> point = this->randomPoint();
+  //    find_closest(point);
+  //    updateRadius();
+  //    RCLCPP_INFO(node_->get_logger(), "Aktualny promień R = %.4f", R);
+  //  }
+  //    
+  //}
+  
   if (!graph_built_){
-    graph[start_t] = {};
-    graph[goal_t] = {};
 
     while(true){
       std::tuple<float, float> point = this->randomPoint();
       RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
+      updateRadius();
+      RCLCPP_INFO(node_->get_logger(), "Aktualny promień R = %.4f", R);
+
 
       find_closest(point);
 
@@ -424,6 +460,12 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
     RCLCPP_ERROR(node_->get_logger(), "A* failed to find a path!");
     return global_path;  
   }
+RCLCPP_INFO(node_->get_logger(), "A* returned path of length: %ld", path_points.size());
+for (size_t i = 0; i < path_points.size(); ++i) {
+  float x = std::get<0>(path_points[i]);
+  float y = std::get<1>(path_points[i]);
+  RCLCPP_INFO(node_->get_logger(), "  Step %lu: x=%.2f y=%.2f", i, x, y);
+}
 
 
 return global_path;
