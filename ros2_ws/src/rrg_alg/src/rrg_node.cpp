@@ -8,7 +8,7 @@
 
 namespace nav2_straightline_planner
 {
-
+bool once = true;
 void StraightLine::configure(
   const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
   std::string name, std::shared_ptr<tf2_ros::Buffer> tf,
@@ -171,22 +171,18 @@ void StraightLine::find_closest(std::tuple<float, float> point)
       float dy = point_y - node_y;
 
       float dist = sqrt(dx * dx + dy * dy);
-      // if (dist < distance)
-      // {
-      //   distance = dist;
-      //   closest = node;
-      // }
+      
       if (dist < R)
       {
         bool is_vaild = check_if_valid(point, node);
-        if (is_vaild)
-        {
+        if (is_vaild) {
           graph[point].push_back(node);
+          graph[node].push_back(point);       
         }
       }
+      
     }
   }
-  //RCLCPP_INFO(this->node_->get_logger(), "Closest point: %f, %f", std::get<0>(closest), std::get<1>(closest));
 }
 void StraightLine::publishAStarPath(const std::vector<std::tuple<float, float>>& path_points)
 {
@@ -234,7 +230,6 @@ bool StraightLine::check_if_valid(std::tuple<float, float> point, std::tuple<flo
   {
     closest_x+=dx;
     closest_y+=dy;
-    //std::tuple<float, float> p = std::make_tuple(closest_x, closest_y);
 
     unsigned int mx, my;
     costmap_->worldToMap(closest_x, closest_y, mx, my);
@@ -242,11 +237,8 @@ bool StraightLine::check_if_valid(std::tuple<float, float> point, std::tuple<flo
     {
       return false;
     }
-    //publishMarker(p, 0.1, 2);
+    
   }
-  //publishMarker(point, 0.2, 1);
-  //publishMarker(closest, 0.2, 3);
-  //publishMarker(point, 0.1, 2);
   publishMarker(point, 0.1, 1);
   return true;
 }
@@ -256,7 +248,7 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
   auto [x, y] = point;
   visualization_msgs::msg::Marker marker;
 
-  marker.header.frame_id = "map"; // Choose the correct frame
+  marker.header.frame_id = "map"; 
   marker.header.stamp = node_->get_clock()->now();
   marker.ns = "random_point %f", id;
   marker.id = id;
@@ -264,39 +256,36 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
   marker.type = visualization_msgs::msg::Marker::SPHERE;
   marker.action = visualization_msgs::msg::Marker::ADD;
 
-  // Set the position of the marker
   marker.pose.position.x = x;
   marker.pose.position.y = y;
-  marker.pose.position.z = 0.0; // Keep it at the ground level
+  marker.pose.position.z = 0.0;
   marker.pose.orientation.x = 0.0;
   marker.pose.orientation.y = 0.0;
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0;
 
-  // Set the scale of the marker (size of the sphere)
-  marker.scale.x = scale; // Diameter of the sphere
+  marker.scale.x = scale; 
   marker.scale.y = scale;
   marker.scale.z = scale;
 
-  // Set the color (RGBA)
-  marker.color.a = 1.0; // Alpha (transparency)
+  marker.color.a = 1.0; 
   if (color == 1)
   {
-    marker.color.r = 1.0; // Red
-    marker.color.g = 0.0; // Green
-    marker.color.b = 0.0; 
+    marker.color.r = 1.0; 
+    marker.color.g = 0.0; 
+    marker.color.b = 0.0;
   }
   else if (color == 2)
   {
-    marker.color.r = 0.0; // Red
-    marker.color.g = 1.0; // Green
-    marker.color.b = 0.0; // Blue
+    marker.color.r = 0.0; 
+    marker.color.g = 1.0; 
+    marker.color.b = 0.0; 
   }
   else if (color == 3)
   {
-    marker.color.r = 0.0; // Red
-    marker.color.g = 0.0; // Green
-    marker.color.b = 1.0; // Blue
+    marker.color.r = 0.0; 
+    marker.color.g = 0.0; 
+    marker.color.b = 1.0; 
   }
 
   // Publish the marker
@@ -317,7 +306,6 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
   edge_marker.color.b = 0.0f;
   edge_marker.color.a = 1.0;
 
-  // Loop over your graph
   for (const auto& [from, neighbors] : graph) {
     float from_x = std::get<0>(from);
     float from_y = std::get<1>(from);
@@ -351,8 +339,7 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
 nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal, std::function<bool()> /*cancel_checker*/)
 {
   nav_msgs::msg::Path global_path;
-
-  // Checking if the goal and start state is in the global frame
+  
   if (start.header.frame_id != global_frame_) {
     RCLCPP_ERROR(
       node_->get_logger(), "Planner will only except start position from %s frame",
@@ -369,7 +356,7 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
   global_path.poses.clear();
   global_path.header.stamp = node_->now();
   global_path.header.frame_id = global_frame_;
-  // calculating the number of loops for current value of interpolation_resolution_
+
   int total_number_of_loop = std::hypot(
     goal.pose.position.x - start.pose.position.x,
     goal.pose.position.y - start.pose.position.y) /
@@ -380,41 +367,36 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
 
   std:: tuple<float, float> start_t = std::tuple<float, float> (start.pose.position.x, start.pose.position.y);
   std:: tuple<float, float> goal_t = std::tuple<float, float> (goal.pose.position.x, goal.pose.position.y);
-  graph[start_t];
-  graph[goal_t];
-  
-  
-  int max_attempts = 50; 
-  for (int i = 0; i < max_attempts; ++i)
-  {
-    std::tuple<float, float> point = this->randomPoint();
-    RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
+  if (!graph_built_){
+    graph[start_t] = {};
+    graph[goal_t] = {};
 
-    find_closest(point);
+    while(true){
+      std::tuple<float, float> point = this->randomPoint();
+      RCLCPP_INFO(this->node_->get_logger(), "Random point: %f, %f", std::get<0>(point), std::get<1>(point));
 
-    if (check_if_valid(point, goal_t))
-    {
-      graph[point].push_back(goal_t);
-      graph[goal_t].push_back(point); 
+      find_closest(point);
+
+      if (heuristic(point, goal_t) < R && check_if_valid(point, goal_t)) {
+        graph[point].push_back(goal_t);
+        graph[goal_t].push_back(point);
+      }
+      if (heuristic(point, start_t) < R && check_if_valid(point, start_t)) {
+        graph[point].push_back(start_t);
+        graph[start_t].push_back(point);
+      }
+      path_points = a_star(graph, start_t, goal_t);
+      if (!path_points.empty()) {
+        break;
+      }
+
     }
 
+    graph_built_ = true;
+
+
+    publishAStarPath(path_points);
   }
-  graph[start_t];
-  graph[goal_t];
-
-  for (const auto& [node, _] : graph)
-  {
-      if (node != start_t && node != goal_t && check_if_valid(start_t, node))
-      {
-          graph[start_t].push_back(node);
-          graph[node].push_back(start_t);
-      }
-  }
-
-
-  auto path_points = a_star(graph, start_t, goal_t);
-
-  publishAStarPath(path_points);
 
   for (const auto& [x, y] : path_points)
   {

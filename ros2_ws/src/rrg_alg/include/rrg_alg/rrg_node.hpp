@@ -77,6 +77,8 @@ private:
   
 
   // My functions
+  bool graph_built_ = false;
+  std::vector<std::tuple<float, float>> path_points;
   std::tuple<float, float> randomPoint();
   void publishMarker(std::tuple<float, float> point, float scale, int color);
   void find_closest(std::tuple<float, float> point);
