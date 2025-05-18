@@ -59,6 +59,10 @@ public:
 
   std::map<std::tuple<float, float>, std::list<std::tuple<float, float> >> graph;
   float R;
+  std::tuple<float, float> last_goal_;
+  std::tuple<float, float> last_start_;
+  bool first_plan = true;
+
 
 private:
   // TF buffer

@@ -358,6 +358,16 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
   nav_msgs::msg::Path global_path;
   std:: tuple<float, float> start_t = std::tuple<float, float> (start.pose.position.x, start.pose.position.y);
   std:: tuple<float, float> goal_t = std::tuple<float, float> (goal.pose.position.x, goal.pose.position.y);
+  bool new_goal = first_plan || (goal_t != last_goal_);
+  if (new_goal) {
+    graph.clear();
+    graph_built_ = false;
+    path_points.clear();
+    last_start_ = start_t;
+    last_goal_ = goal_t;
+    first_plan = false;
+  }
+
   path_points.clear(); 
   graph[start_t];              
   graph[goal_t];
