@@ -53,6 +53,8 @@ public:
   std::random_device rd;
   std::mt19937 gen_;
   int id;
+  double eta_{5.0};
+  double update_interval_sec_ = 3.0;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr graph_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr a_star_pub_;
@@ -88,6 +90,8 @@ private:
   void publishMarker(std::tuple<float, float> point, float scale, int color);
   void find_closest(std::tuple<float, float> point);
   bool check_if_valid(std::tuple<float, float> point, std::tuple<float, float> closest);
+  std::chrono::steady_clock::time_point last_update_time_{std::chrono::steady_clock::now()};
+  
 
   std::vector<std::tuple<float, float>> a_star(
     std::map<std::tuple<float, float>, std::list<std::tuple<float, float>>>& graph,

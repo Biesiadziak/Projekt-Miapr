@@ -45,19 +45,26 @@ double StraightLine::heuristic(const std::tuple<float, float>& a, const std::tup
 
 void StraightLine::updateRadius()
 {
-  const double gamma_star = 2.0 * std::pow(1.0 + 1.0 / 2, 1.0 / 2); 
-  const double safety_margin = 1.2;  
-  const double gamma = gamma_star * safety_margin;
-
   const std::size_t n = graph.size();
-
-  if (n < 2) {
-    R = std::numeric_limits<double>::infinity();  
+  if (n < 2) {                    
+    R = std::numeric_limits<double>::infinity();
     return;
   }
 
-  R = gamma * std::pow(std::log(static_cast<double>(n)) / static_cast<double>(n), 1.0 / 2);
-  
+  constexpr double FREE_RATIO = 0.80;              // 80 % mapy wolne od kolizji
+  constexpr double ZETA_2     = M_PI;             
+  const double map_area       = costmap_->getSizeInMetersX() *
+                                 costmap_->getSizeInMetersY();
+  const double mu_free        = map_area * FREE_RATIO;
+
+  const double gamma_star = 2.0 * std::sqrt(1.5) *
+                            std::sqrt(mu_free / ZETA_2);
+
+  const double gamma = 0.1 * 1.1 * gamma_star;         
+  const double r     = gamma * std::sqrt(std::log(static_cast<double>(n)) /
+                                         static_cast<double>(n));
+
+  R = std::min(r, eta_);    
 }
 
 
@@ -94,6 +101,7 @@ std::tuple<float,float> StraightLine::randomPoint()
 
   unsigned int mx, my;
   costmap_->worldToMap(x, y, mx, my);
+  
   if (costmap_->getCost(mx,my) < 200)
   {
     return std::make_tuple(x, y); 
@@ -307,7 +315,6 @@ void StraightLine::publishMarker(std::tuple<float, float> point, float scale, in
 
   // Publish the marker
   marker_pub_->publish(marker);
-  RCLCPP_INFO(this->node_->get_logger(), "Marker published");
 
 
   visualization_msgs::msg::Marker edge_marker;
@@ -368,14 +375,32 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
     first_plan = false;
   }
 
-  path_points.clear(); 
-  graph[start_t];              
-  graph[goal_t];
-  if(graph_built_){
-    find_closest(start_t);
-    find_closest(goal_t);
-    path_points = a_star(graph, start_t, goal_t);
+  //path_points.clear(); 
+  //graph[start_t];              
+  //graph[goal_t];
+  //if(graph_built_){
+  //  find_closest(start_t);
+  //  find_closest(goal_t);
+  //  path_points = a_star(graph, start_t, goal_t);
+  //}
+  auto now = std::chrono::steady_clock::now();
+  double seconds_since_last = std::chrono::duration<double>(now - last_update_time_).count();
+
+  if (seconds_since_last >= update_interval_sec_) {
+      RCLCPP_INFO(node_->get_logger(), "[A* update] Minęło %.2f sek., przeliczam trasę...", seconds_since_last);
+
+      path_points.clear(); 
+      graph[start_t];              
+      graph[goal_t];
+      if (graph_built_) {
+          find_closest(start_t);
+          find_closest(goal_t);
+          path_points = a_star(graph, start_t, goal_t);
+          publishAStarPath(path_points);
+      }
+      last_update_time_ = now; 
   }
+
 
   if (start.header.frame_id != global_frame_) {
     RCLCPP_ERROR(
@@ -402,15 +427,15 @@ nav_msgs::msg::Path StraightLine::createPlan(const geometry_msgs::msg::PoseStamp
   double y_increment = (goal.pose.position.y - start.pose.position.y) / total_number_of_loop;
 
   //WARIANT Z CIĄGŁYM DOKŁADANIEM PUNKTÓW
-  //if(!path_points.empty()){
-  //  for(int n = 0; n<100; n++){
-  //    std::tuple<float,float> point = this->randomPoint();
-  //    find_closest(point);
-  //    updateRadius();
-  //    RCLCPP_INFO(node_->get_logger(), "Aktualny promień R = %.4f", R);
-  //  }
-  //    
-  //}
+  if(!path_points.empty()){
+    for(int n = 0; n<100; n++){
+      std::tuple<float,float> point = this->randomPoint();
+      find_closest(point);
+      updateRadius();
+      RCLCPP_INFO(node_->get_logger(), "Aktualny promień R = %.4f", R);
+    }
+      
+  }
   
   if (!graph_built_){
 

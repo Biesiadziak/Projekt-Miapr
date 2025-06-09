@@ -4,4 +4,4 @@
 [safe]
 	directory = /home/bartek/Projects/Inzynierka/robot40human_ws
 [credential]
-	helper = "!f() { /root/.vscode-server/bin/19e0f9e681ecb8e5c09d8784acaa601316ca4571/node /tmp/vscode-remote-containers-3bb28028-ccc7-4f4e-bd70-98cded59e97b.js git-credential-helper $*; }; f"
+	helper = "!f() { /root/.vscode-server/bin/848b80aeb52026648a8ff9f7c45a9b0a80641e2e/node /tmp/vscode-remote-containers-6bfab201-ec84-4761-8f4c-7fc80802271c.js git-credential-helper $*; }; f"
