@@ -67,9 +67,9 @@ chmod +x start_simulation.sh
 ## 🖥️ RViz Setup
 
 1. In RViz, use the **2D Pose Estimate** tool to roughly set the initial pose of the robot:  
-   [2D Pose Estimate Example](pose_estimate.png)
+   ![2D Pose Estimate Example](pose_estimate.png)
 
 2. Then, send a navigation goal using the **Nav2 Goal** tool:  
-   [Nav2 Goal Example](nav2_goal.png)
+   ![Nav2 Goal Example](nav2_goal.png)
 
 ---
